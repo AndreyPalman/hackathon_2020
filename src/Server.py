@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import struct
 import threading
 import socket
@@ -71,37 +73,45 @@ def Waiting_For_Clients(UDP_SOCKET):
 # state after 10 seconds.
 def Game_Mode(is_game_started):
     if not is_game_started:
-        data_to_send = "Welcome to Keyboard Spamming Battle Royale.\n" \
-                       "Group 1:\n" \
-                       "==\n" \
-                       f"{GROUP_A[0][Team.TEAM_NAME.value]}" \
-                       f"{GROUP_A[1][Team.TEAM_NAME.value]}" \
-                       f"Group 1:\n" \
-                       "==\n" \
-                       f"{GROUP_B[0][Team.TEAM_NAME.value]}" \
-                       f"{GROUP_B[1][Team.TEAM_NAME.value]}" \
-                       "Start pressing keys on your keyboard as fast as you can!!"
+        # data_to_send = "Welcome to Keyboard Spamming Battle Royale.\n" \
+        #                "Group 1:\n" \
+        #                "==\n" \
+        #                f"{GROUP_A[0][Team.TEAM_NAME.value]}" \
+        #                f"{GROUP_A[1][Team.TEAM_NAME.value]}" \
+        #                f"Group 1:\n" \
+        #                "==\n" \
+        #                f"{GROUP_B[0][Team.TEAM_NAME.value]}" \
+        #                f"{GROUP_B[1][Team.TEAM_NAME.value]}" \
+        #                "Start pressing keys on your keyboard as fast as you can!!"
+        data_to_send = "Hello"
         for team in GROUP_A + GROUP_B:
-            team[Team.TEAM_CONNECTION.value].sendall(data_to_send.encode(UTF8_ENCODE))
+            try:
+                team[Team.TEAM_CONNECTION.value].sendall(data_to_send.encode(UTF8_ENCODE))
+            except:
+                pass
 
 def Terminate_Teams_Conecction():
     winning_group,winning_group_id = Get_Winner()
     first_team = 0
     second_team = 1
 
-    message_to_send = "Game over!\n" \
-                      f"Group 1 typed in {GROUP_A_SCORE} characters. Group 2 typed in {GROUP_B_SCORE} characters.\n" \
-                      f"Group {winning_group_id} wins!\n\n" \
-                      "Congratulation to the winners:\n" \
-                      f"{winning_group[first_team][Team.TEAM_NAME.value]}" \
-                      f"{winning_group[second_team][Team.TEAM_NAME.value]}"
-
+    # message_to_send = "Game over!\n" \
+    #                   f"Group 1 typed in {GROUP_A_SCORE} characters. Group 2 typed in {GROUP_B_SCORE} characters.\n" \
+    #                   f"Group {winning_group_id} wins!\n\n" \
+    #                   "Congratulation to the winners:\n" \
+    #                   f"{winning_group[first_team][Team.TEAM_NAME.value]}" \
+    #                   f"{winning_group[second_team][Team.TEAM_NAME.value]}"
+    message_to_send = f"Game over Team A Score {GROUP_A_SCORE} Team B Score {GROUP_B_SCORE}"
     for team in GROUP_A + GROUP_B:
-        team[Team.TEAM_CONNECTION.value].sendall(message_to_send.encode(UTF8_ENCODE))
-        team[Team.TEAM_CONNECTION.value].close()
+        if team[Team.TEAM_CONNECTION.value]:
+            team[Team.TEAM_CONNECTION.value].sendall(message_to_send.encode(UTF8_ENCODE))
+    for team in GROUP_A + GROUP_B:
+        if team[Team.TEAM_CONNECTION.value]:
+            team[Team.TEAM_CONNECTION.value].close()
+
 
 def Get_Winner():
-    if GROUP_A_SCORE > GROUP_A_SCORE:
+    if GROUP_A_SCORE > GROUP_B_SCORE:
         return GROUP_A,1
     return GROUP_B,2
 
