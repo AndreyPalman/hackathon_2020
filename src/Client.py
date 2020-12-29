@@ -1,40 +1,47 @@
 #!/usr/bin/env python3
 import atexit
-from termios import tcflush, TCIFLUSH
 import struct
 import random
 import sys
 import threading
 import socket
 import termios
-import tty
 from select import select
 
 PORT = 13117
 BUFFER_SIZE = 4096
-TEAM_NAME = f"Team_{random.randint(0, 1000)}\n"
+TEAM_NAME = f"2pack+{random.randint(0, 10000)}\n"
 UTF8_ENCODE = 'utf-8'
 SOCKET_LIST = []
 
 stop_threads = False
 
-# # save the terminal settings
-# fd = sys.stdin.fileno()
-# new_term = termios.tcgetattr(fd)
-# old_term = termios.tcgetattr(fd)
-#
-# # new terminal setting unbuffered
-# new_term[3] = (new_term[3] & ~termios.ICANON & ~termios.ECHO)
+import os
 
-# def getchar():
-#     fd = sys.stdin.fileno()
-#     old_settings = termios.tcgetattr(fd)
-#     try:
-#         tty.setraw(sys.stdin.fileno())
-#         ch = sys.stdin.read(1)
-#     finally:
-#         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-#     return ch
+os.system("")
+
+# Group of Different functions for different styles
+class style():
+    BLACK = '\033[30m'
+    RED = '\033[31m'
+    GREEN = '\033[32m'
+    YELLOW = '\033[33m'
+    BLUE = '\033[34m'
+    MAGENTA = '\033[35m'
+    CYAN = '\033[36m'
+    PINK = '\033[95m'
+    WHITE = '\033[37m'
+    UNDERLINE = '\033[4m'
+    RESET = '\033[0m'
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
 
 def send_input():
     kb = KBHit()
@@ -45,13 +52,9 @@ def send_input():
             if kb.kbhit():
                 SOCKET_LIST[0].sendall(str(kb.getch()).encode(UTF8_ENCODE))
         except:
-            print('No Socket found')
             break
 
-
 def Main():
-    # team_name = input('Enter team name')
-    team_name = TEAM_NAME
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as client_socket:
         # Enable broadcasting mode
@@ -65,43 +68,38 @@ def Main():
         host_ip = '127.0.1.1'
         magic_cookie, message_type, tcp_server_port = struct.unpack('LBH', data_from_udp_server)
         if magic_cookie == 0xfeedbeef and message_type == 0x2:
-            print(f'Received offer from {host_ip}, attempting to connect...')
+            print(style.GREEN + f'Received offer from {host_ip}, attempting to connect...')
             tcp_server_port = int(tcp_server_port)
 
             SEND_DATA_TO_SERVER_THREAD = threading.Thread(target=send_input,
                                                  name='Send Data To Server')
 
-            Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
+            Start_Client(tcp_server_port, TEAM_NAME, host_ip,SEND_DATA_TO_SERVER_THREAD)
 
 
 def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD):
     global stop_threads
-    print(f"stop thread condition before: {stop_threads}")
     stop_threads = False
-    print(f"stop thread condition after: {stop_threads}")
-    #try:
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         SOCKET_LIST.append(client_socket)
         client_socket.connect((host_ip, tcp_server_port))
-        print('Connected')
+
         client_socket.sendall(team_name.encode(UTF8_ENCODE))
 
-        welcoe_data = client_socket.recv(BUFFER_SIZE)
-        print(welcoe_data.decode(UTF8_ENCODE))
-
+        welcome_data = client_socket.recv(BUFFER_SIZE)
+        print(style.GREEN + welcome_data.decode(UTF8_ENCODE))
 
         SEND_DATA_TO_SERVER_THREAD.start()
 
-
         game_over = client_socket.recv(BUFFER_SIZE)
-        print(game_over.decode(UTF8_ENCODE))
-        # KILL IW WITH FIRE
+        print(style.GREEN +game_over.decode(UTF8_ENCODE))
 
+        # KILL IW WITH FIRE
         stop_threads = True
         SEND_DATA_TO_SERVER_THREAD.join()
 
-
-    print("Server disconnected, listening for offer requests...")
+    print(style.WARNING + "Server disconnected, listening for offer requests...")
     SOCKET_LIST.clear()
     Main()
 
@@ -168,7 +166,6 @@ class KBHit:
         dr,dw,de = select([sys.stdin], [], [], 0)
         return dr != []
 
-
 if __name__ == '__main__':
-    print("Client started, listening for offer request...")
+    print(style.WHITE + style.BOLD + "Client started, listening for offer request...")
     Main()
