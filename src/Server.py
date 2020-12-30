@@ -49,8 +49,8 @@ ACTIVE_CLIENTS_TREAD_LIST = []
 ACTIVE_CONNECTION = 0
 
 MAXIMUM_SERVER_SCORE = 0
-DIFFERENT_NUMBER_DIFFERENT_LETTERS_PER_GAME = []
-MOST_TYPED_LETTERS = []
+LETTERS_TYPED_GROUP_A = {}
+LETTERS_TYPED_GROUP_B = {}
 MAXIMUM_AVERAGE_CLICK_TIME = 0
 AVERAGE_CLICK_TIME_WINNING_GROUP = 0
 AVERAGE_CLICK_TIME_LOSING_GROUP = 0
@@ -96,7 +96,9 @@ def Start_UDP_Server(TCP_SERVER_THREAD):
                 break
 
         Terminate_Teams_Conecction()
-        print(style.PINK + "Game over, sending out offer requests...")
+        print(style.PINK + "Game over!")
+        print(style.PINK + Update_Statistics(max(GROUP_A_SCORE,GROUP_B_SCORE),min(GROUP_A_SCORE,GROUP_B_SCORE)))
+        print(style.PINK + "sending out offer requests...")
         Stop_All_Client_Threads()
         Reset()
 
@@ -126,15 +128,17 @@ def Game_Mode(is_game_started):
                        "==\n" \
                        f"{Get_Team_Name(GROUP_B)}" \
                        "Start pressing keys on your keyboard as fast as you can!!"
+
         for team in GROUP_A + GROUP_B:
             try:
                 team[Team.TEAM_CONNECTION.value].sendall(data_to_send.encode(UTF8_ENCODE))
             except:
+                print(style.RED + f"Couldn't send welcome message to {Team[Team.TEAM_NAME.value]}")
                 pass
 
 def Terminate_Teams_Conecction():
-    winning_group,winning_group_id = Get_Winner()
 
+    winning_group,winning_group_id = Get_Winner()
     message_to_send = style.RED + "Game over!\n" \
                       f"Group 1 typed in {GROUP_A_SCORE} characters. Group 2 typed in {GROUP_B_SCORE} characters.\n" \
                       f"Group {winning_group_id} wins!\n\n" \
@@ -146,13 +150,40 @@ def Terminate_Teams_Conecction():
             team[Team.TEAM_CONNECTION.value].sendall(message_to_send.encode(UTF8_ENCODE))
             team[Team.TEAM_CONNECTION.value].close()
 
+def most_common_key(dict):
+    max_value = 0
+    max_key = None
+    for key,value in dict.items():
+        if value > max_value:
+            max_value = value
+            max_key = key
+    return max_key
+
+
 def Update_Statistics(winning_team_score, losing_team_score):
-    global MAXIMUM_SERVER_SCORE,AVERAGE_CLICK_TIME_WINNING_GROUP,AVERAGE_CLICK_TIME_LOSING_GROUP,MAXIMUM_AVERAGE_CLICK_TIME
+    global MAXIMUM_SERVER_SCORE,AVERAGE_CLICK_TIME_WINNING_GROUP,AVERAGE_CLICK_TIME_LOSING_GROUP,MAXIMUM_AVERAGE_CLICK_TIME,LETTERS_TYPED_GROUP_B,LETTERS_TYPED_GROUP_A
     MAXIMUM_SERVER_SCORE = max(MAXIMUM_SERVER_SCORE,winning_team_score)
     AVERAGE_CLICK_TIME_WINNING_GROUP = winning_team_score / GAME_TIME
     AVERAGE_CLICK_TIME_LOSING_GROUP = losing_team_score / GAME_TIME
     MAXIMUM_AVERAGE_CLICK_TIME = max(AVERAGE_CLICK_TIME_WINNING_GROUP,AVERAGE_CLICK_TIME_LOSING_GROUP,MAXIMUM_AVERAGE_CLICK_TIME)
 
+    common_A_key = most_common_key(LETTERS_TYPED_GROUP_A)
+    common_A_value = LETTERS_TYPED_GROUP_A.get(common_A_key)
+    common_B_key = most_common_key(LETTERS_TYPED_GROUP_B)
+    common_B_value = LETTERS_TYPED_GROUP_B.get(common_B_key)
+
+    group_A_chars = len(LETTERS_TYPED_GROUP_A)
+    group_B_chars = len(LETTERS_TYPED_GROUP_B)
+
+    statistic_to_print = style.CYAN + style.BOLD + f"Server highest score : {MAXIMUM_SERVER_SCORE}\n" \
+                       f"Server fastest click time : {MAXIMUM_AVERAGE_CLICK_TIME} types per seconds\n" \
+                       f"Winning average click time : {AVERAGE_CLICK_TIME_WINNING_GROUP} types per seconds\n" \
+                       f"Losing average click time : {AVERAGE_CLICK_TIME_LOSING_GROUP} types per seconds\n" \
+                       f"Most common typed letter of group A : {common_A_key}, typed in {common_A_value} times\n" \
+                       f"Most common typed letter of group B : {common_B_key}, typed in {common_B_value} times\n" \
+                       f"Group A typed in {group_A_chars} different chars\n" \
+                       f"Group B typed in {group_B_chars} different chars\n"
+    return statistic_to_print
 
 def Get_Winner():
     if GROUP_A_SCORE > GROUP_B_SCORE:
@@ -184,16 +215,17 @@ def Handle_Client_TCP_Connection(client_connection,client_address):
     first_message = True
     try:
         while True:
-            client_data = client_connection.recv(BUFFER_SIZE)
+            client_data = client_connection.recv(BUFFER_SIZE).decode(UTF8_ENCODE)
             if not client_data:
                 break
             if first_message:
-                Add_Team(client_data.decode(UTF8_ENCODE), client_address,client_connection)
+                Add_Team(client_data, client_address,client_connection)
                 first_message = False
             else:
                 #print(f"received from client {client_data.decode(UTF8_ENCODE)}")
-                Handle_Game(client_address)
+                Handle_Game(client_address,client_data)
     except:
+        print(style.RED + f"Couldn't get team name from {client_address}")
         pass
 
 class Team(Enum):
@@ -201,13 +233,32 @@ class Team(Enum):
     TEAM_ADDRESS = 1
     TEAM_CONNECTION = 2
 
-def Handle_Game(client_address):
+# group A = True / group B = False
+def Add_Letter(group,client_letter):
+    global LETTERS_TYPED_GROUP_A,LETTERS_TYPED_GROUP_B
+    # Team A
+    if group:
+        if LETTERS_TYPED_GROUP_A.get(client_letter):
+            LETTERS_TYPED_GROUP_A[client_letter] += 1
+        else:
+            LETTERS_TYPED_GROUP_A[client_letter] = 1
+    # Team B
+    else:
+        if LETTERS_TYPED_GROUP_B.get(client_letter):
+            LETTERS_TYPED_GROUP_B[client_letter] += 1
+        else:
+            LETTERS_TYPED_GROUP_B[client_letter] = 1
+
+
+def Handle_Game(client_address,client_data):
     global GROUP_A_SCORE,GROUP_B_SCORE
     for team in GROUP_A:
         if team[Team.TEAM_ADDRESS.value][1] == client_address[1]:
+            Add_Letter(True,client_data)
             GROUP_A_SCORE += 1
     for team in GROUP_B:
         if team[Team.TEAM_ADDRESS.value][1] == client_address[1]:
+            Add_Letter(False, client_data)
             GROUP_B_SCORE += 1
 
 def Stop_All_Client_Threads():
@@ -218,15 +269,16 @@ def Stop_All_Client_Threads():
             pass
 
 def Reset():
-    global GROUP_A, GROUP_B, ACTIVE_CONNECTION, ACTIVE_CLIENTS_TREAD_LIST, GROUP_A_SCORE, GROUP_B_SCORE,\
-        DIFFERENT_NUMBER_DIFFERENT_LETTERS_PER_GAME,AVERAGE_CLICK_TIME_WINNING_GROUP,AVERAGE_CLICK_TIME_LOSING_GROUP
+    global GROUP_A, GROUP_B, ACTIVE_CONNECTION, ACTIVE_CLIENTS_TREAD_LIST, GROUP_A_SCORE, GROUP_B_SCORE\
+        ,AVERAGE_CLICK_TIME_WINNING_GROUP,AVERAGE_CLICK_TIME_LOSING_GROUP,LETTERS_TYPED_GROUP_A,LETTERS_TYPED_GROUP_B
     GROUP_A = []
     GROUP_B = []
     ACTIVE_CLIENTS_TREAD_LIST = []
     ACTIVE_CONNECTION = 0
     GROUP_A_SCORE = 0
     GROUP_B_SCORE = 0
-    DIFFERENT_NUMBER_DIFFERENT_LETTERS_PER_GAME = []
+    LETTERS_TYPED_GROUP_A = {}
+    LETTERS_TYPED_GROUP_B = {}
 
 def Print_Statistics():
     pass

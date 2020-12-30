@@ -10,7 +10,7 @@ from select import select
 
 PORT = 13117
 BUFFER_SIZE = 4096
-TEAM_NAME = f"2pack+{random.randint(0, 10000)}\n"
+TEAM_NAME = f"2pack\n"
 UTF8_ENCODE = 'utf-8'
 SOCKET_LIST = []
 
@@ -50,7 +50,11 @@ def send_input():
             break
         try:
             if kb.kbhit():
-                SOCKET_LIST[0].sendall(str(kb.getch()).encode(UTF8_ENCODE))
+                try:
+                    SOCKET_LIST[0].sendall(str(kb.getch()).encode(UTF8_ENCODE))
+                except:
+                    print(style.RED + f"Server closed socket - {SOCKET_LIST[0]}")
+                    break
         except:
             break
 
@@ -83,23 +87,46 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         SOCKET_LIST.append(client_socket)
-        client_socket.connect((host_ip, tcp_server_port))
+        try:
+            client_socket.connect((host_ip, tcp_server_port))
+        except:
+            print(style.RED + f"Couldn't connect to {host_ip}:{tcp_server_port}")
+            Restart_Client()
+        try:
+            client_socket.sendall(team_name.encode(UTF8_ENCODE))
+        except:
+            print(style.RED + f"Couldn't send to {host_ip}:{tcp_server_port}")
+            Restart_Client()
 
-        client_socket.sendall(team_name.encode(UTF8_ENCODE))
-
-        welcome_data = client_socket.recv(BUFFER_SIZE)
-        print(style.GREEN + welcome_data.decode(UTF8_ENCODE))
-
+        try:
+            welcome_data = client_socket.recv(BUFFER_SIZE)
+            print(style.GREEN + welcome_data.decode(UTF8_ENCODE))
+        except:
+            print(style.RED + f"Couldn't receive from {host_ip}:{tcp_server_port}")
+            print(style.WARNING + "Server disconnected, listening for offer requests...")
+            Restart_Client()
         SEND_DATA_TO_SERVER_THREAD.start()
-
-        game_over = client_socket.recv(BUFFER_SIZE)
-        print(style.GREEN +game_over.decode(UTF8_ENCODE))
+        try:
+            game_over = client_socket.recv(BUFFER_SIZE)
+            print(style.GREEN +game_over.decode(UTF8_ENCODE))
+        except:
+            print(style.RED + f"Couldn't receive from {host_ip}:{tcp_server_port}")
+            print(style.WARNING + "Server disconnected, listening for offer requests...")
+            stop_threads = True
+            SEND_DATA_TO_SERVER_THREAD.join()
+            Restart_Client()
 
         # KILL IW WITH FIRE
         stop_threads = True
         SEND_DATA_TO_SERVER_THREAD.join()
 
+
     print(style.WARNING + "Server disconnected, listening for offer requests...")
+    Restart_Client()
+
+
+def Restart_Client():
+    global SOCKET_LIST
     SOCKET_LIST.clear()
     Main()
 
