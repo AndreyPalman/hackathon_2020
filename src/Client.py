@@ -67,9 +67,11 @@ def Main():
         client_socket.bind(("", PORT))
 
         # data_from_udp_server = Magic cookie (4byte) + Message port (1byte) + port (2bytes)
-        data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE)
-        #host_ip = addr[0]
-        host_ip = '127.0.1.1'
+        BUFFER_SIZE_FOR_FIRST_MESSAGE = 12
+        #data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE)
+        data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE_FOR_FIRST_MESSAGE)
+        host_ip = addr[0]
+        #host_ip = '127.0.1.1'
         magic_cookie, message_type, tcp_server_port = struct.unpack('LBH', data_from_udp_server)
         if magic_cookie == 0xfeedbeef and message_type == 0x2:
             print(style.GREEN + f'Received offer from {host_ip}, attempting to connect...')
@@ -87,17 +89,19 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         SOCKET_LIST.append(client_socket)
+        #  Trying to connect to server
         try:
             client_socket.connect((host_ip, tcp_server_port))
         except:
             print(style.RED + f"Couldn't connect to {host_ip}:{tcp_server_port}")
             Restart_Client()
+        # Sending Team Name to Server
         try:
             client_socket.sendall(team_name.encode(UTF8_ENCODE))
         except:
             print(style.RED + f"Couldn't send to {host_ip}:{tcp_server_port}")
             Restart_Client()
-
+        # Waiting to server send start game message
         try:
             welcome_data = client_socket.recv(BUFFER_SIZE)
             print(style.GREEN + welcome_data.decode(UTF8_ENCODE))
@@ -105,7 +109,9 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
             print(style.RED + f"Couldn't receive from {host_ip}:{tcp_server_port}")
             print(style.WARNING + "Server disconnected, listening for offer requests...")
             Restart_Client()
+        # Starting Listening to keyboard
         SEND_DATA_TO_SERVER_THREAD.start()
+        # Waiting to to server send game over message
         try:
             game_over = client_socket.recv(BUFFER_SIZE)
             print(style.GREEN +game_over.decode(UTF8_ENCODE))
@@ -116,7 +122,7 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
             SEND_DATA_TO_SERVER_THREAD.join()
             Restart_Client()
 
-        # KILL IW WITH FIRE
+        # KILL IT WITH FIRE#
         stop_threads = True
         SEND_DATA_TO_SERVER_THREAD.join()
 
