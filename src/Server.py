@@ -133,7 +133,7 @@ def Game_Mode(is_game_started):
             try:
                 team[Team.TEAM_CONNECTION.value].sendall(data_to_send.encode(UTF8_ENCODE))
             except:
-                print(style.RED + f"Couldn't send welcome message to {Team[Team.TEAM_NAME.value]}")
+                print(style.RED + f"Couldn't send welcome message to {team[Team.TEAM_NAME.value]}")
                 pass
 
 def Terminate_Teams_Conecction():
@@ -147,8 +147,16 @@ def Terminate_Teams_Conecction():
 
     for team in GROUP_A + GROUP_B:
         if team[Team.TEAM_CONNECTION.value]:
-            team[Team.TEAM_CONNECTION.value].sendall(message_to_send.encode(UTF8_ENCODE))
-            team[Team.TEAM_CONNECTION.value].close()
+            try:
+                team[Team.TEAM_CONNECTION.value].sendall(message_to_send.encode(UTF8_ENCODE))
+            except:
+                print(style.RED + f"Couldn't send game over message to {team[Team.TEAM_NAME.value]}")
+                pass
+            try:
+                team[Team.TEAM_CONNECTION.value].close()
+            except:
+                print(style.RED + f"Couldn't close connection of {team[Team.TEAM_NAME.value]}")
+                pass
 
 def most_common_key(dict):
     max_value = 0
