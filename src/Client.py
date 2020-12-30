@@ -67,9 +67,12 @@ def Main():
         client_socket.bind(("", PORT))
 
         # data_from_udp_server = Magic cookie (4byte) + Message port (1byte) + port (2bytes)
-        BUFFER_SIZE_FOR_FIRST_MESSAGE = 12
+        BUFFER_SIZE_FOR_FIRST_MESSAGE = 16
         #data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE)
         data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE_FOR_FIRST_MESSAGE)
+        print(data_from_udp_server)
+        print(len(data_from_udp_server))
+        print(len(addr))
         host_ip = addr[0]
         #host_ip = '127.0.1.1'
         magic_cookie, message_type, tcp_server_port = struct.unpack('LBH', data_from_udp_server)
