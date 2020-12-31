@@ -82,10 +82,12 @@ def Start_UDP_Server(TCP_SERVER_THREAD):
 
     while True:
         Game_started = False
+        # Send broadcasts about the game and wait for clients to connect
         for i in range(WAITING_TIME):
             Waiting_For_Clients(UDP_SOCKET)
             # Sleep for 1 second
             time.sleep(ONE_SECOND)
+        # Recieves pressed keys from the clients as long the game is on
         for i in range(GAME_TIME):
             if ACTIVE_CONNECTION >= 1:
                 Game_Mode(Game_started)
@@ -94,9 +96,10 @@ def Start_UDP_Server(TCP_SERVER_THREAD):
             else:
                 print(style.RED + 'No players joined, back to sending out offer requests')
                 break
-
+        # Send to the clients a game over message and close the clients connections
         Terminate_Teams_Conecction()
         print(style.PINK + "Game over!")
+        # Calculate statistics
         print(style.PINK + Update_Statistics(max(GROUP_A_SCORE,GROUP_B_SCORE),min(GROUP_A_SCORE,GROUP_B_SCORE)))
         print(style.PINK + "sending out offer requests...")
         Stop_All_Client_Threads()
@@ -212,13 +215,15 @@ def Start_TCP_Server():
                                              name=f'Client_{ACTIVE_CONNECTION}')
             ACTIVE_CLIENTS_TREAD_LIST.append(client_thread)
             client_thread.start()
-
+            
+# Add_Team adds team to a group
 def Add_Team(team_name, client_address,client_connection):
     if len(GROUP_A) > len(GROUP_B):
         GROUP_B.append((team_name, client_address,client_connection))
     else:
         GROUP_A.append((team_name, client_address,client_connection))
 
+# Handle_Client_TCP_Connection handles a team, first adds it to a group and then let it play. 
 def Handle_Client_TCP_Connection(client_connection,client_address):
     first_message = True
     try:
@@ -241,6 +246,7 @@ class Team(Enum):
     TEAM_ADDRESS = 1
     TEAM_CONNECTION = 2
 
+# Add_Letter gets a group and a letter that was pressed by the group and adds it to the right collection.
 # group A = True / group B = False
 def Add_Letter(group,client_letter):
     global LETTERS_TYPED_GROUP_A,LETTERS_TYPED_GROUP_B
@@ -257,7 +263,7 @@ def Add_Letter(group,client_letter):
         else:
             LETTERS_TYPED_GROUP_B[client_letter] = 1
 
-
+# Gets a pressed key (client_data) that was sent from (client_address), checks which group it belongs and updates. 
 def Handle_Game(client_address,client_data):
     global GROUP_A_SCORE,GROUP_B_SCORE
     for team in GROUP_A:

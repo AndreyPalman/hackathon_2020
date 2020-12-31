@@ -13,6 +13,7 @@ BUFFER_SIZE = 4096
 TEAM_NAME = f"2pack\n"
 UTF8_ENCODE = 'utf-8'
 SOCKET_LIST = []
+ACTIVE_CONNECTION = 0
 
 stop_threads = False
 
@@ -42,40 +43,40 @@ class style():
     ENDC = '\033[0m'
     BOLD = '\033[1m'
 
-
+# send_input checks continuesly if a key was pressed, if so it sends it to the server by the TCP connection
+# it stops when the game is over (Thread was stopped)
 def send_input():
     kb = KBHit()
     while True:
         if stop_threads:
             break
         try:
-            if kb.kbhit():
+            if kb.kbhit(): # if a key was pressed
                 try:
-                    SOCKET_LIST[0].sendall(str(kb.getch()).encode(UTF8_ENCODE))
+                    # take the key that was pressed and send it to the server
+                    SOCKET_LIST[ACTIVE_CONNECTION].sendall(str(kb.getch()).encode(UTF8_ENCODE)) 
                 except:
-                    print(style.RED + f"Server closed socket - {SOCKET_LIST[0]}")
+                    print(style.RED + f"Server closed socket - {SOCKET_LIST[ACTIVE_CONNECTION]}")
                     break
         except:
             break
 
 def Main():
-
+    # Create a UDP socket 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as client_socket:
         # Enable broadcasting mode
         client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         client_socket.bind(("", PORT))
 
-        # data_from_udp_server = Magic cookie (4byte) + Message port (1byte) + port (2bytes)
-        BUFFER_SIZE_FOR_FIRST_MESSAGE = 16
-        #data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE)
-        data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE_FOR_FIRST_MESSAGE)
-        print(data_from_udp_server)
-        print(len(data_from_udp_server))
-        print(len(addr))
+        # waits until it gets a broadcast from the server
+        data_from_udp_server, addr = client_socket.recvfrom(BUFFER_SIZE)
+
         host_ip = addr[0]
-        #host_ip = '127.0.1.1'
+
+        # data_from_udp_server = Magic cookie (4byte) + Message port (1byte) + port (2bytes)
         magic_cookie, message_type, tcp_server_port = struct.unpack('LBH', data_from_udp_server)
+        # Validate the message format
         if magic_cookie == 0xfeedbeef and message_type == 0x2:
             print(style.GREEN + f'Received offer from {host_ip}, attempting to connect...')
             tcp_server_port = int(tcp_server_port)
@@ -85,11 +86,12 @@ def Main():
 
             Start_Client(tcp_server_port, TEAM_NAME, host_ip,SEND_DATA_TO_SERVER_THREAD)
 
-
+# Start_Client connects to the server over a TCP connection,getting messages from it and sends the pressed keys  
 def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD):
     global stop_threads
     stop_threads = False
-
+    
+    # Create a TCP connection
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         SOCKET_LIST.append(client_socket)
         #  Trying to connect to server
@@ -104,7 +106,7 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
         except:
             print(style.RED + f"Couldn't send to {host_ip}:{tcp_server_port}")
             Restart_Client()
-        # Waiting to server send start game message
+        # Waiting until receiving a welcome message from the server
         try:
             welcome_data = client_socket.recv(BUFFER_SIZE)
             print(style.GREEN + welcome_data.decode(UTF8_ENCODE))
@@ -114,7 +116,7 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
             Restart_Client()
         # Starting Listening to keyboard
         SEND_DATA_TO_SERVER_THREAD.start()
-        # Waiting to to server send game over message
+        # Waiting until receiving a game over message from the server
         try:
             game_over = client_socket.recv(BUFFER_SIZE)
             print(style.GREEN +game_over.decode(UTF8_ENCODE))
@@ -133,12 +135,13 @@ def Start_Client(tcp_server_port, team_name, host_ip,SEND_DATA_TO_SERVER_THREAD)
     print(style.WARNING + "Server disconnected, listening for offer requests...")
     Restart_Client()
 
-
+# Restart_Client resets the active connection and starts again the main loop
 def Restart_Client():
     global SOCKET_LIST
     SOCKET_LIST.clear()
     Main()
 
+# KBHit - helper class for listening the keyboard presses. 
 class KBHit:
 
     def __init__(self):
@@ -177,22 +180,6 @@ class KBHit:
 
 
         return sys.stdin.read(1)
-
-
-    def getarrow(self):
-        ''' Returns an arrow-key code after kbhit() has been called. Codes are
-        0 : up
-        1 : right
-        2 : down
-        3 : left
-        Should not be called in the same program as getch().
-        '''
-
-
-        c = sys.stdin.read(3)[2]
-        vals = [65, 67, 66, 68]
-
-        return vals.index(ord(c.decode('utf-8')))
 
 
     def kbhit(self):
